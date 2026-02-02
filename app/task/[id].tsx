@@ -1,27 +1,26 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  StyleSheet,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { getTask, deleteTask, Task } from "../api"; // nhớ đúng path
+import { getTask, deleteTask, Task } from "../api";
 
-export default function TaskDetail() {
-  const params = useLocalSearchParams();
+export default function TaskDetailScreen() {
   const router = useRouter();
-
-  // ✅ đảm bảo id luôn là string
-  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const taskId = Array.isArray(id) ? id[0] : id;
 
   const [task, setTask] = useState<Task | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadTask = useCallback(async () => {
-    if (!id) {
+  const fetchTask = useCallback(async () => {
+    if (!taskId) {
       setError("ID không hợp lệ");
       setLoading(false);
       return;
@@ -31,40 +30,42 @@ export default function TaskDetail() {
       setLoading(true);
       setError(null);
 
-      const response = await getTask(Number(id));
-      setTask(response.data);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Lỗi khi tải công việc");
-      }
+      const { data } = await getTask(Number(taskId));
+      setTask(data);
+    } catch (err: any) {
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Không thể tải công việc"
+      );
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [taskId]);
 
   useEffect(() => {
-    loadTask();
-  }, [loadTask]);
+    fetchTask();
+  }, [fetchTask]);
 
   const handleDelete = () => {
-    if (!id) return;
+    if (!taskId) return;
 
-    Alert.alert("Xác nhận", "Bạn có chắc muốn xóa công việc này?", [
+    Alert.alert("Xác nhận", "Bạn muốn xóa công việc này?", [
       { text: "Hủy", style: "cancel" },
       {
         text: "Xóa",
         style: "destructive",
         onPress: async () => {
           try {
-            await deleteTask(Number(id));
+            await deleteTask(Number(taskId));
             Alert.alert("Thành công", "Đã xóa công việc");
             router.replace("/");
-          } catch (err: unknown) {
+          } catch (err: any) {
             Alert.alert(
               "Lỗi",
-              err instanceof Error ? err.message : "Không thể xóa"
+              err?.response?.data?.message ||
+                err?.message ||
+                "Không thể xóa công việc"
             );
           }
         },
@@ -72,92 +73,156 @@ export default function TaskDetail() {
     ]);
   };
 
-  // ⏳ Loading
+  /* ---------- States ---------- */
+
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <Centered>
         <ActivityIndicator size="large" />
-        <Text style={{ marginTop: 10 }}>Đang tải...</Text>
-      </View>
+        <Text style={styles.subText}>Đang tải...</Text>
+      </Centered>
     );
   }
 
-  // ❌ Error
   if (error) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <Text style={{ color: "red" }}>{error}</Text>
-        <TouchableOpacity onPress={loadTask} style={{ marginTop: 20 }}>
-          <Text style={{ color: "blue" }}>Thử lại</Text>
+      <Centered>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryBtn} onPress={fetchTask}>
+          <Text style={styles.retryText}>Thử lại</Text>
         </TouchableOpacity>
-      </View>
+      </Centered>
     );
   }
 
-  // 🚫 Không có task
   if (!task) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <Centered>
         <Text>Không tìm thấy công việc</Text>
-      </View>
+      </Centered>
     );
   }
 
+  /* ---------- UI ---------- */
+
   return (
-    <View style={{ flex: 1, padding: 20 }}>
-      <TouchableOpacity
-        onPress={() => router.back()}
-        style={{
-          marginBottom: 20,
-          backgroundColor: "#6c757d",
-          padding: 10,
-          borderRadius: 5,
-        }}
-      >
-        <Text style={{ color: "#fff", textAlign: "center" }}>
-          ⬅️ Quay lại
-        </Text>
+    <View style={styles.container}>
+      <TouchableOpacity style={styles.backBtn} onPress={router.back}>
+        <Text style={styles.backText}>⬅️ Quay lại</Text>
       </TouchableOpacity>
 
-      <Text style={{ fontSize: 28, fontWeight: "bold" }}>{task.title}</Text>
+      <Text style={styles.title}>{task.title}</Text>
 
-      <Text style={{ marginTop: 10 }}>
-        Mô tả: {task.description ?? "Không có"}
+      <Text style={styles.text}>Mô tả: {task.description || "Không có"}</Text>
+
+      <Text style={styles.text}>
+        Ưu tiên: {task.priority || "Không xác định"}
       </Text>
 
-      <Text style={{ marginTop: 10 }}>
-        Ưu tiên: {task.priority ?? "Không xác định"}
+      <Text style={styles.text}>
+        Trạng thái: {task.status || "Không xác định"}
       </Text>
 
-      <Text style={{ marginTop: 10 }}>
-        Trạng thái: {task.status ?? "Không xác định"}
-      </Text>
-
+      {/* ---------- FIXED ROUTER ---------- */}
       <TouchableOpacity
-        style={{
-          marginTop: 20,
-          backgroundColor: "#ffc107",
-          padding: 15,
-          borderRadius: 10,
-        }}
-        onPress={() => router.push(`/edit-task/${id}`)}
+        style={styles.editBtn}
+        onPress={() =>
+          router.push({
+            pathname: "/task/[id]",
+            params: { id: taskId ! },
+          })
+        }
       >
-        <Text style={{ textAlign: "center" }}>✏️ Sửa công việc</Text>
+        <Text style={styles.editText}>✏️ Sửa công việc</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={{
-          marginTop: 15,
-          backgroundColor: "#dc3545",
-          padding: 15,
-          borderRadius: 10,
-        }}
-        onPress={handleDelete}
-      >
-        <Text style={{ color: "#fff", textAlign: "center" }}>
-          🗑 Xóa công việc
-        </Text>
+      <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
+        <Text style={styles.deleteText}>🗑 Xóa công việc</Text>
       </TouchableOpacity>
     </View>
   );
 }
+
+/* ---------- Shared Component ---------- */
+
+function Centered({ children }: { children: React.ReactNode }) {
+  return <View style={styles.centered}>{children}</View>;
+}
+
+/* ---------- Styles ---------- */
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 15,
+  },
+  text: {
+    marginTop: 10,
+    fontSize: 16,
+  },
+  subText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: "#444",
+  },
+  errorText: {
+    color: "red",
+    fontSize: 16,
+    textAlign: "center",
+  },
+  retryBtn: {
+    marginTop: 20,
+    backgroundColor: "#007bff",
+    padding: 12,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: "#fff",
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  backBtn: {
+    marginBottom: 20,
+    backgroundColor: "#6c757d",
+    padding: 10,
+    borderRadius: 5,
+  },
+  backText: {
+    color: "#fff",
+    textAlign: "center",
+  },
+  editBtn: {
+    marginTop: 20,
+    backgroundColor: "#ffc107",
+    padding: 15,
+    borderRadius: 10,
+  },
+  editText: {
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  deleteBtn: {
+    marginTop: 15,
+    backgroundColor: "#dc3545",
+    padding: 15,
+    borderRadius: 10,
+  },
+  deleteText: {
+    color: "#fff",
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+});
