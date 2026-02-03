@@ -8,7 +8,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { getTask, deleteTask, Task } from "../api";
+import { getTask, deleteTask, Task } from "../../api";
 
 export default function TaskDetailScreen() {
   const router = useRouter();

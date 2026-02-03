@@ -1,8 +1,7 @@
 from fastapi import FastAPI
-from routes.tasks import router as tasks_router
+from routes.task import router as tasks_router
 from database import Base, engine
 
-# Tạo bảng database tự động
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
