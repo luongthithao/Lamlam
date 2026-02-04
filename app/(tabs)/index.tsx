@@ -38,26 +38,9 @@ export default function HomeScreen() {
 
     if (!trimmed) {
       Alert.alert("Lỗi", "Vui lòng nhập tên task");
-      return;
     }
+    return;
 
-    setAdding(true);
-    try {
-      const newTask = await createTask({
-        title: trimmed,
-        priority: "Low",
-        status: "Pending",
-        task: undefined
-      });
-      // Thêm task mới vào state để tránh gọi API lại
-      setTasks((prevTasks) => [...prevTasks, newTask.data.task]);
-      setTask("");
-    } catch (error) {
-      console.error("Error adding task:", error);
-      Alert.alert("Lỗi", "Không thể thêm task");
-    } finally {
-      setAdding(false);
-    }
   };
 
   const handleDeleteTask = (id: number) => {
